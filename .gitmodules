@@ -1,0 +1,3 @@
+[submodule "plux/libgmod"]
+	path = plux/libgmod
+	url = https://github.com/Lexicality/libgmod.git
