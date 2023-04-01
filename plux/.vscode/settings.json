@@ -1,0 +1,12 @@
+{
+	"Lua.workspace.library": ["libgmod"],
+	"editor.formatOnSave": true,
+	"[lua]": {
+		"editor.defaultFormatter": "JohnnyMorganz.stylua"
+	},
+	"Lua.diagnostics.enable": true,
+	"Lua.completion.requireSeparator": "/",
+	"Lua.hint.enable": true,
+	"Lua.hint.paramType": true,
+	"Lua.diagnostics.disable": ["different-requires"]
+}
