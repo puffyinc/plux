@@ -3,7 +3,7 @@
 
 -- Reverse the ratio, eg. 16:9 = 9 / 16, 4:3 = 3 / 4
 local ASPECT_RATIO = 9 / 16
-local WIDTH = 1366
+local WIDTH = 512
 
 return {
 	WIDTH = WIDTH,
