@@ -8,7 +8,7 @@ It's recommended to run `polyhaven2gmod` in its directory and then copy the mate
 
 The usage is described in the command, but the general workflow is:
 
-1. Find a material you want to use on ![PolyHaven](https://polyhaven.com/textures)
+1. Find a material you want to use on [PolyHaven](https://polyhaven.com/textures)
    <br></br>
    ![step_1](https://i.imgur.com/a8GsOyX.png)
 2. Copy the material ID from the URL in the address bar once you click on the material.
