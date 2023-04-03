@@ -6,6 +6,9 @@ end
 -- Loads the context menu extension for Plux.
 include("adjustments.lua")
 
+-- Loads the BSDFMaterial extension for Plux.
+include("bsdfmaterial.lua")
+
 ---@module 'settings'
 local settings = include("settings.lua")
 
@@ -222,6 +225,16 @@ outputPNG:Save("plux_render")
 
 if settings.DEBUG_GBUFFER then
 	albedo:Save("plux_albedo")
+	-- To identify normals, this is converted to 0, 1 for debugging.
+	for y = 0, settings.HEIGHT - 1 do
+		for x = 0, settings.WIDTH - 1 do
+			normal:SetPixel(
+				x,
+				y,
+				normal:GetPixel(x, y) * 0.5 + Vector(0.5, 0.5, 0.5)
+			)
+		end
+	end
 	normal:Save("plux_normal")
 	csfrBuffer:Save("plux_csfr")
 end

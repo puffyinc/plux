@@ -4,6 +4,9 @@
 -- All this does is try to resolve secondary surfaces for objects that support it, such as perfect glass and perfect mirrors.
 -- After that, the results are saved in the G-buffer which allows OIDN to denoise much more effectively.
 
+---@module 'settings'
+local settings = include("../settings.lua")
+
 ---@module 'pathtracer'
 local pathtracer = include("../pathtracer.lua")
 
@@ -25,21 +28,11 @@ local function isGlass(mat)
 	return mat:Roughness() == 0 and mat:SpecularTransmission() == 1
 end
 
--- TODO: See if we can find another way to do this. Maybe we can cast two rays and mix them based on fresnel?
---- Checks if the given material is a mirror
----@param mat any
----@return boolean
-local function isDiffuseSpecular(mat)
-	return mat:Roughness() == 0
-		and mat:Metalness() == 0
-		and mat:SpecularTransmission() == 0
-end
-
 --- Checks if a material is qualified for PSR
 ---@param mat any
 ---@return boolean
 local function isQualifiedSurface(mat)
-	return isMirror(mat) or isGlass(mat) -- or isDiffuseSpecular(mat)
+	return isMirror(mat) or isGlass(mat)
 end
 
 --- Finds a secondary surface for a primary perfect glass/mirror surface.
@@ -50,6 +43,8 @@ end
 ---@return psr.SecondarySurface result
 local function findSecondarySurface(result, reflection, sampler, bvh)
 	local result = result
+	-- Required for some effects like absorption.
+	local throughput = Vector(1, 1, 1)
 
 	for _ = 1, MAX_PSR_DEPTH do
 		if result:HitSky() then
@@ -60,13 +55,13 @@ local function findSecondarySurface(result, reflection, sampler, bvh)
 			}
 		end
 
-		local mat = pathtracer.getMaterial(result)
+		local mat, absorption = pathtracer.getMaterial(result)
 
 		if not isQualifiedSurface(mat) then
 			return {
 				valid = true,
 				direction = -result:Incident(),
-				albedo = result:Albedo(),
+				albedo = result:Albedo() * throughput,
 				normal = result:Normal(),
 			}
 		elseif isQualifiedSurface(mat) then
@@ -83,15 +78,13 @@ local function findSecondarySurface(result, reflection, sampler, bvh)
 					== 0
 
 				local transmitOut = viewside == result:FrontFacing()
-
-				result = bvh:Traverse(
-					vistrace.CalcRayOrigin(
-						result:Pos(),
-						transmitOut and result:GeometricNormal()
-							or -result:GeometricNormal()
-					),
-					sample.scattered
+				local origin = vistrace.CalcRayOrigin(
+					result:Pos(),
+					transmitOut and result:GeometricNormal()
+						or -result:GeometricNormal()
 				)
+
+				result = bvh:Traverse(origin, sample.scattered)
 
 				if not result then
 					return {
@@ -99,6 +92,25 @@ local function findSecondarySurface(result, reflection, sampler, bvh)
 						isSky = true,
 						direction = sample.scattered,
 					}
+				end
+
+				-- Absorption for refractive objects
+				if
+					settings.FEATURES.ABSORPTION
+					and not reflection
+					and absorption
+					and not transmitOut
+					and IsValid(result:Entity())
+				then
+					local dist = origin:Distance(result:Pos())
+					local absorptionWeight = -absorption * dist
+					absorptionWeight = Vector(
+						math.exp(absorptionWeight[1]),
+						math.exp(absorptionWeight[2]),
+						math.exp(absorptionWeight[3])
+					)
+
+					throughput = throughput * absorptionWeight
 				end
 			end
 		end

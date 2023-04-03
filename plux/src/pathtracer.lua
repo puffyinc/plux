@@ -1,14 +1,14 @@
 ---@module 'settings'
 local settings = include("settings.lua")
 
+---@module 'colors'
+local colors = include("colors.lua")
+
 ---@module 'rain'
 local rain = include("rain.lua")
 
 ---@module 'mis'
 local mis = include("mis.lua")
-
----@module 'colors'
-local colors = include("colors.lua")
 
 ---@alias pathtracer.PathtraceInput {result: any, sampler: vistrace.Sampler, lightCollection: lights.LightCollection, hdri: any, bvh: any}
 
@@ -18,15 +18,21 @@ waterMaterial:Roughness(0)
 waterMaterial:Metalness(0)
 waterMaterial:SpecularTransmission(1)
 
---- Gets a material from a TraceResult. This can be a custom material or the basic material or even the water material.
+--- Gets a material from a TraceResult. This can be a custom material or the basic material or even the water material. It can also return an absorption vector.
 ---@param result any
+---@return any material, GVector|nil absorption
 local function getMaterial(result)
 	if result:HitWater() then
-		return waterMaterial
+		return waterMaterial, settings.WATER_ABSORPTION
 	end
 
-	return IsValid(result:Entity()) and result:Entity():GetBSDFMaterial()
-		or basicMaterial
+	local absorption = nil
+	if IsValid(result:Entity()) then
+		absorption = colors.toVector(result:Entity():GetColor())
+		return result:Entity():GetBSDFMaterial(), absorption
+	end
+
+	return basicMaterial
 end
 
 --- Pathtraces the given input.
@@ -48,7 +54,7 @@ local function pathtrace(input)
 
 	for _ = 1, settings.MAX_BOUNCES do
 		if result then
-			local mat = getMaterial(result)
+			local mat, absorption = getMaterial(result)
 
 			local oldRoughness = mat:Roughness()
 
@@ -174,22 +180,19 @@ local function pathtrace(input)
 				-- Absorption for refractive objects
 				if
 					settings.FEATURES.ABSORPTION
+					and absorption
 					and not transmitOut
 					and IsValid(result:Entity())
 				then
 					local dist = origin:Distance(result:Pos())
-					--- This is not normalized! This is to allow users to specify actual absorption values
-					--- for refractive objects.
-					local colorAbsorb =
-						colors.toVector(result:Entity():GetColor())
-					local absorption = -colorAbsorb * dist
-					absorption = Vector(
-						math.exp(absorption[1]),
-						math.exp(absorption[2]),
-						math.exp(absorption[3])
+					local absorptionWeight = -absorption * dist
+					absorptionWeight = Vector(
+						math.exp(absorptionWeight[1]),
+						math.exp(absorptionWeight[2]),
+						math.exp(absorptionWeight[3])
 					)
 
-					throughput = throughput * absorption
+					throughput = throughput * absorptionWeight
 				end
 			end
 		end

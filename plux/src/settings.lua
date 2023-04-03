@@ -8,12 +8,13 @@ local WIDTH = 512
 return {
 	WIDTH = WIDTH,
 	HEIGHT = math.floor(WIDTH * ASPECT_RATIO),
-	FOCAL_LENGTH = 45,
+	FOCAL_LENGTH = 60,
 	SENSOR_HEIGHT = 35,
 	MAX_BOUNCES = 8,
-	SAMPLES = 4,
+	SAMPLES = 16,
 	HDRI = "forgotten_miniland_4k",
 	DEBUG_GBUFFER = true,
+	WATER_ABSORPTION = Vector(0.01, 0, 0.005),
 
 	FEATURES = {
 		MIS = true,
