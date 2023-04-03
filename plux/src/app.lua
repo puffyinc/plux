@@ -6,9 +6,6 @@ end
 -- Loads the context menu extension for Plux.
 include("adjustments.lua")
 
--- Loads the BSDFMaterial extension for Plux.
-include("bsdfmaterial.lua")
-
 ---@module 'settings'
 local settings = include("settings.lua")
 
