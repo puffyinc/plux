@@ -3,7 +3,7 @@
 
 -- Reverse the ratio, eg. 16:9 = 9 / 16, 4:3 = 3 / 4
 local ASPECT_RATIO = 9 / 16
-local WIDTH = 1920
+local WIDTH = 1366
 
 return {
 	WIDTH = WIDTH,
@@ -12,7 +12,8 @@ return {
 	SENSOR_HEIGHT = 35,
 	MAX_BOUNCES = 8,
 	SAMPLES = 16,
-	HDRI = "forgotten_miniland_4k",
+	HDRI = "pizzo_pernice_4k",
+	HDRI_EXPOSURE = 10,
 	DEBUG_GBUFFER = true,
 	WATER_ABSORPTION = Vector(0.01, 0, 0.005),
 

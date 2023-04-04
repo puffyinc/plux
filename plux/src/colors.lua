@@ -100,6 +100,10 @@ local function powVec(vec, power)
 	)
 end
 
+local function maxZeroVec(vec)
+	return Vector(math.max(vec[1], 0), math.max(vec[2], 0), math.max(vec[3], 0))
+end
+
 --- Transforms a linear RGB color to a sRGB-encoded color.
 ---@param color GVector
 ---@return GVector srgb
@@ -111,6 +115,36 @@ local function linearTosRGB(color)
 	clr[1] = color[1] < 0.0031308 and x[1] or y[1]
 	clr[2] = color[2] < 0.0031308 and x[2] or y[2]
 	clr[3] = color[3] < 0.0031308 and x[3] or y[3]
+
+	return clr
+end
+
+--[[
+	float3 SRGBToLinear(in float3 color)
+	{
+		float3 x = color / 12.92f;
+		float3 y = pow(max((color + 0.055f) / 1.055f, 0.0f), 2.4f);
+
+		float3 clr = color;
+		clr.r = color.r <= 0.04045f ? x.r : y.r;
+		clr.g = color.g <= 0.04045f ? x.g : y.g;
+		clr.b = color.b <= 0.04045f ? x.b : y.b;
+
+		return clr;
+	}
+]]
+
+--- Transforms a linear RGB color to a sRGB-encoded color.
+---@param color GVector
+---@return GVector linear
+local function sRGBToLinear(color)
+	local x = color / 12.92
+	local y =
+		powVec(maxZeroVec((color + Vector(0.055, 0.055, 0.055)) / 1.055), 2.4)
+	local clr = color
+	clr[1] = color[1] <= 0.04045 and x[1] or y[1]
+	clr[2] = color[2] <= 0.04045 and x[2] or y[2]
+	clr[3] = color[3] <= 0.04045 and x[3] or y[3]
 
 	return clr
 end
@@ -170,6 +204,7 @@ end
 return {
 	tonemap = tonemap,
 	linearTosRGB = linearTosRGB,
+	sRGBToLinear = sRGBToLinear,
 	saturate = saturate,
 	fffto888 = fffto888,
 	toNormalizedVector = toNormalizedVector,

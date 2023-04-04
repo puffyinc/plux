@@ -95,7 +95,8 @@ local function pathtrace(input)
 					if skyValid then
 						local skyResult = input.bvh:Traverse(origin, skyDir)
 						if not skyResult or skyResult:HitSky() then
-							local skyWeight = skyCol / skyPdf
+							local skyWeight = (skyCol * settings.HDRI_EXPOSURE)
+								/ skyPdf
 							local misWeight = delta and 1
 								or mis.powerHeuristic2(
 									skyPdf,
@@ -173,6 +174,7 @@ local function pathtrace(input)
 					color = color
 						+ throughput
 							* input.hdri:GetPixel(bsdfSample.scattered)
+							* settings.HDRI_EXPOSURE
 							* misWeight
 					break
 				end
