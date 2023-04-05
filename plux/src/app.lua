@@ -124,7 +124,7 @@ local function renderPixel(x, y)
 		return miss(camDir)
 	end
 
-	albedo:SetPixel(x, y, (result:Albedo()))
+	albedo:SetPixel(x, y, colors.linearTosRGB(result:Albedo()))
 	normal:SetPixel(x, y, result:Normal())
 	csfrBuffer:SetPixel(x, y, Vector(0, 0, 0))
 
@@ -143,6 +143,8 @@ local function renderPixel(x, y)
 				onMiss = miss,
 			})
 		then
+			-- Convert surface albedo to sRGB
+			albedo:SetPixel(x, y, colors.linearTosRGB(albedo:GetPixel(x, y)))
 			anyCsfrRendered = true
 		end
 	end
