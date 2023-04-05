@@ -124,7 +124,7 @@ local function renderPixel(x, y)
 		return miss(camDir)
 	end
 
-	albedo:SetPixel(x, y, colors.linearTosRGB(result:Albedo()))
+	albedo:SetPixel(x, y, (result:Albedo()))
 	normal:SetPixel(x, y, result:Normal())
 	csfrBuffer:SetPixel(x, y, Vector(0, 0, 0))
 

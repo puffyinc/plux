@@ -87,7 +87,7 @@ def convert_to_vtf(texture: str, paths: AssetPaths) -> AssetPaths:
 		# This is not actually given to VTFCmd, this is just an estimate of the output!
 		output = pathlib.Path.cwd() / f"{texture}_{name}.vtf"
 		# Had to run in shell because VTFCmd is so old that it doesn't work with the normal array arguments without shell=True.
-		subprocess.run(' '.join(["\"bin/VTFCmd.exe\"", "-normal" if is_normalmap else "", f"-prefix {texture}_", f"-file {path}",]), shell=True)
+		subprocess.run(' '.join(["\"bin/VTFCmd.exe\"", "-flag \"normal\"" if is_normalmap else "", "-format \"dxt5\"", f"-prefix {texture}_", f"-file {path}",]), shell=True)
 
 		return output
 	
