@@ -19,7 +19,7 @@ return {
 
 	FEATURES = {
 		MIS = true,
-		CSFR_PSR = true,
+		PSR = true,
 		RUSSIAN_ROULETTE = true,
 		ABSORPTION = true,
 		RAIN = false,

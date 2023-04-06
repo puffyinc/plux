@@ -15,14 +15,13 @@ local colors = include("colors.lua")
 ---@module 'lights'
 local lights = include("lights.lua")
 
----@module 'experimental/csfr'
-local csfr = include("experimental/csfr.lua")
+---@module 'experimental/psr'
+local psr = include("experimental/psr.lua")
 
 ---@module 'pathtracer'
 local pathtracer = include("pathtracer.lua")
 
 local lightCollection = lights.LightCollection.new()
-local anyCsfrRendered = false
 
 --- Curve which allows you to crank up the intensity while also keeping low intensity by using a quadratic curve.
 --- Tuned in Desmos, basically means low alpha values will be treated as low intensity, but high alpha values will be treated as extreme intensity.
@@ -128,14 +127,13 @@ local function renderPixel(x, y)
 	normal:SetPixel(x, y, result:Normal())
 	csfrBuffer:SetPixel(x, y, Vector(0, 0, 0))
 
-	if settings.FEATURES.CSFR_PSR then
+	if settings.FEATURES.PSR then
 		if
-			csfr.applyCSFRPSR({
+			psr.apply({
 				x = x,
 				y = y,
 				albedo = albedo,
 				normal = normal,
-				csfrBuffer = csfrBuffer,
 				bvh = bvh,
 				sampler = sampler,
 				result = result,
@@ -145,7 +143,6 @@ local function renderPixel(x, y)
 		then
 			-- Convert surface albedo to sRGB
 			albedo:SetPixel(x, y, colors.linearTosRGB(albedo:GetPixel(x, y)))
-			anyCsfrRendered = true
 		end
 	end
 
@@ -174,18 +171,6 @@ local startTime = os.clock()
 for y = 0, settings.HEIGHT - 1 do
 	for x = 0, settings.WIDTH - 1 do
 		output:SetPixel(x, y, display(renderPixel(x, y)))
-	end
-end
-
--- Cross filter for CSFR objects
-if settings.FEATURES.CSFR_PSR and anyCsfrRendered and 1 == 2 then
-	for y = 0, settings.HEIGHT - 1 do
-		for x = 0, settings.WIDTH - 1 do
-			if csfr.isCsfrRendered(x, y, csfrBuffer) then
-				csfr.crossFilter(albedo, x, y, csfrBuffer)
-				csfr.crossFilter(normal, x, y, csfrBuffer)
-			end
-		end
 	end
 end
 
