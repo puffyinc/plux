@@ -73,6 +73,7 @@ local function applyCSFRPSR(input)
 		local surface = psr.findSecondarySurface(
 			input.result,
 			reflection,
+			input,
 			input.sampler,
 			input.bvh
 		)

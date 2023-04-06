@@ -178,7 +178,7 @@ for y = 0, settings.HEIGHT - 1 do
 end
 
 -- Cross filter for CSFR objects
-if settings.FEATURES.CSFR_PSR and anyCsfrRendered then
+if settings.FEATURES.CSFR_PSR and anyCsfrRendered and 1 == 2 then
 	for y = 0, settings.HEIGHT - 1 do
 		for x = 0, settings.WIDTH - 1 do
 			if csfr.isCsfrRendered(x, y, csfrBuffer) then

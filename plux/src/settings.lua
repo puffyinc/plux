@@ -13,9 +13,9 @@ return {
 	MAX_BOUNCES = 8,
 	SAMPLES = 4,
 	HDRI = "pizzo_pernice_4k",
-	HDRI_EXPOSURE = 10,
+	HDRI_EXPOSURE = 2,
 	DEBUG_GBUFFER = true,
-	WATER_ABSORPTION = Vector(0.01, 0, 0.005),
+	WATER_ABSORPTION = Vector(0.05, 0, 0.1),
 
 	FEATURES = {
 		MIS = true,
