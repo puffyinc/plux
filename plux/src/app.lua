@@ -75,12 +75,6 @@ local output = vistrace.CreateRenderTarget(
 	settings.HEIGHT,
 	VisTraceRTFormat.RGBFFF
 )
---- This contains what objects were rendered with CSFR, 0 if no, 1 if yes.
-local csfrBuffer = vistrace.CreateRenderTarget(
-	settings.WIDTH,
-	settings.HEIGHT,
-	VisTraceRTFormat.RF
-)
 
 --- Transforms a radiance value to a display color.
 --- Pretty much just tonemaps and converts to sRGB.
@@ -125,7 +119,6 @@ local function renderPixel(x, y)
 
 	albedo:SetPixel(x, y, colors.linearTosRGB(result:Albedo()))
 	normal:SetPixel(x, y, result:Normal())
-	csfrBuffer:SetPixel(x, y, Vector(0, 0, 0))
 
 	if settings.FEATURES.PSR then
 		if
@@ -220,5 +213,4 @@ if settings.DEBUG_GBUFFER then
 		end
 	end
 	normal:Save("plux_normal")
-	csfrBuffer:Save("plux_csfr")
 end
