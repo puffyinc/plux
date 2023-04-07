@@ -8,5 +8,5 @@
 	"Lua.completion.requireSeparator": "/",
 	"Lua.hint.enable": true,
 	"Lua.hint.paramType": false,
-	"Lua.diagnostics.disable": ["different-requires"]
+	"Lua.diagnostics.disable": ["different-requires", "missing-return"]
 }

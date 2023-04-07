@@ -6,8 +6,8 @@ end
 -- Loads the context menu extension for Plux.
 include("adjustments.lua")
 
----@module 'settings'
-local settings = include("settings.lua")
+---@module 'settingmenu'
+local settingmenu = include("settingmenu.lua")
 
 ---@module 'colors'
 local colors = include("colors.lua")
@@ -20,8 +20,9 @@ local psr = include("experimental/psr.lua")
 
 ---@module 'pathtracer'
 local pathtracer = include("pathtracer.lua")
-
 local lightCollection = lights.LightCollection.new()
+
+local DEBUG_GBUFFER = false
 
 --- Curve which allows you to crank up the intensity while also keeping low intensity by using a quadratic curve.
 --- Tuned in Desmos, basically means low alpha values will be treated as low intensity, but high alpha values will be treated as extreme intensity.
@@ -49,168 +50,177 @@ for _, prop in pairs(props) do
 	end
 end
 
-local bvh = vistrace.CreateAccel(filteredProps)
-local hdri = vistrace.LoadHDRI(settings.HDRI)
----@type vistrace.Sampler
-local sampler = vistrace.CreateSampler()
+settingmenu.getSettings(function(settings)
+	local bvh = vistrace.CreateAccel(filteredProps)
+	local hdri = vistrace.LoadHDRI(settings.hdri)
+	---@type vistrace.Sampler
+	local sampler = vistrace.CreateSampler()
 
-local camScaleVertical = 0.5 * settings.SENSOR_HEIGHT / settings.FOCAL_LENGTH
-local camScaleHorizontal = settings.WIDTH / settings.HEIGHT * camScaleVertical
-local camPos, camAng = LocalPlayer():EyePos(), LocalPlayer():EyeAngles()
---- Currently disabled due to a VisTrace regression.
-local camConeAngle = math.atan(2 * camScaleVertical / settings.HEIGHT)
+	local camScaleVertical = 0.5 * settings.sensorHeight / settings.focalLength
+	local camScaleHorizontal = settings.width
+		/ settings.height
+		* camScaleVertical
+	local camPos, camAng = LocalPlayer():EyePos(), LocalPlayer():EyeAngles()
+	--- Currently disabled due to a VisTrace regression.
+	local camConeAngle = math.atan(2 * camScaleVertical / settings.height)
 
-local albedo = vistrace.CreateRenderTarget(
-	settings.WIDTH,
-	settings.HEIGHT,
-	VisTraceRTFormat.RGBFFF
-)
-local normal = vistrace.CreateRenderTarget(
-	settings.WIDTH,
-	settings.HEIGHT,
-	VisTraceRTFormat.RGBFFF
-)
-local output = vistrace.CreateRenderTarget(
-	settings.WIDTH,
-	settings.HEIGHT,
-	VisTraceRTFormat.RGBFFF
-)
-
---- Transforms a radiance value to a display color.
---- Pretty much just tonemaps and converts to sRGB.
----@param radiance GVector Radiance value
----@return GVector color 0-1 RGB color
-local function display(radiance)
-	return colors.linearTosRGB(colors.tonemap(radiance))
-end
-
---- Miss program. In the future, this will be extended to trace the map's skybox.
----@param dir GVector
----@return GVector radiance Computed radiance.
-local function miss(dir)
-	return hdri:GetPixel(dir)
-end
-
---- Generates a camera ray given a pixel
----@param x number
----@param y number
----@return GVector
-local function generateRay(x, y)
-	local camX = (1 - 2 * (x + 0.5) / settings.WIDTH) * camScaleHorizontal
-	local camY = (1 - 2 * (y + 0.5) / settings.HEIGHT) * camScaleVertical
-
-	local camDir = Vector(1, camX, camY)
-	camDir:Rotate(camAng)
-	camDir:Normalize()
-
-	return camDir
-end
-
---- Renders a pixel (x, y).
----@param x number
----@param y number
----@return GVector radiance Computed radiance.
-local function renderPixel(x, y)
-	local camDir = generateRay(x, y)
-	local result = bvh:Traverse(camPos, camDir)
-	if not result or result:HitSky() then
-		return miss(camDir)
-	end
-
-	albedo:SetPixel(x, y, colors.linearTosRGB(result:Albedo()))
-	normal:SetPixel(x, y, result:Normal())
-
-	if settings.FEATURES.PSR then
-		if
-			psr.apply({
-				x = x,
-				y = y,
-				albedo = albedo,
-				normal = normal,
-				bvh = bvh,
-				sampler = sampler,
-				result = result,
-
-				onMiss = miss,
-			})
-		then
-			-- Convert surface albedo to sRGB
-			albedo:SetPixel(x, y, colors.linearTosRGB(albedo:GetPixel(x, y)))
-		end
-	end
-
-	-- Average the computed radiance of n amount of samples.
-	local radiance = Vector(0, 0, 0)
-
-	---@type pathtracer.PathtraceInput
-	local pathtracerInput = {
-		bvh = bvh,
-		lightCollection = lightCollection,
-		hdri = hdri,
-		sampler = sampler,
-		result = result,
-	}
-
-	for _ = 1, settings.SAMPLES do
-		radiance = radiance + pathtracer.pathtrace(pathtracerInput)
-	end
-
-	radiance = radiance / settings.SAMPLES
-	return radiance
-end
-
-local startTime = os.clock()
-
-for y = 0, settings.HEIGHT - 1 do
-	for x = 0, settings.WIDTH - 1 do
-		output:SetPixel(x, y, display(renderPixel(x, y)))
-	end
-end
-
-output:Save("plux_render_noisy")
-if denoisingSupported then
-	output:Denoise({
-		Albedo = albedo,
-		Normal = normal,
-
-		AlbedoNoisy = false,
-		NormalNoisy = false,
-
-		sRGB = true,
-	})
-end
-
-print(("Render took %.2f seconds!"):format(os.clock() - startTime))
-print(
-	("Render info:\nDimensions: %dx%d\nSamples: %d\nMax Bounces: %d\nFocal Length: %d\nSensor Height: %d"):format(
-		settings.WIDTH,
-		settings.HEIGHT,
-		settings.SAMPLES,
-		settings.MAX_BOUNCES,
-		settings.FOCAL_LENGTH,
-		settings.SENSOR_HEIGHT
+	local albedo = vistrace.CreateRenderTarget(
+		settings.width,
+		settings.height,
+		VisTraceRTFormat.RGBFFF
 	)
-)
+	local normal = vistrace.CreateRenderTarget(
+		settings.width,
+		settings.height,
+		VisTraceRTFormat.RGBFFF
+	)
+	local output = vistrace.CreateRenderTarget(
+		settings.width,
+		settings.height,
+		VisTraceRTFormat.RGBFFF
+	)
 
-print("Settings dump:")
----@diagnostic disable-next-line: missing-parameter
-PrintTable(settings)
+	--- Transforms a radiance value to a display color.
+	--- Pretty much just tonemaps and converts to sRGB.
+	---@param radiance GVector Radiance value
+	---@return GVector color 0-1 RGB color
+	local function display(radiance)
+		return colors.linearTosRGB(colors.tonemap(radiance))
+	end
 
--- We want the full render to be viewed as a PNG, so we transform it to RGB888.
-local outputPNG = colors.fffto888(output)
-outputPNG:Save("plux_render")
+	--- Miss program. In the future, this will be extended to trace the map's skybox.
+	---@param dir GVector
+	---@return GVector radiance Computed radiance.
+	local function miss(dir)
+		return hdri:GetPixel(dir)
+	end
 
-if settings.DEBUG_GBUFFER then
-	albedo:Save("plux_albedo")
-	-- To identify normals, this is converted to 0, 1 for debugging.
-	for y = 0, settings.HEIGHT - 1 do
-		for x = 0, settings.WIDTH - 1 do
-			normal:SetPixel(
-				x,
-				y,
-				normal:GetPixel(x, y) * 0.5 + Vector(0.5, 0.5, 0.5)
-			)
+	--- Generates a camera ray given a pixel
+	---@param x number
+	---@param y number
+	---@return GVector
+	local function generateRay(x, y)
+		local camX = (1 - 2 * (x + 0.5) / settings.width) * camScaleHorizontal
+		local camY = (1 - 2 * (y + 0.5) / settings.height) * camScaleVertical
+
+		local camDir = Vector(1, camX, camY)
+		camDir:Rotate(camAng)
+		camDir:Normalize()
+
+		return camDir
+	end
+
+	--- Renders a pixel (x, y).
+	---@param x number
+	---@param y number
+	---@return GVector radiance Computed radiance.
+	local function renderPixel(x, y)
+		local camDir = generateRay(x, y)
+		local result = bvh:Traverse(camPos, camDir)
+		if not result or result:HitSky() then
+			return miss(camDir)
+		end
+
+		albedo:SetPixel(x, y, colors.linearTosRGB(result:Albedo()))
+		normal:SetPixel(x, y, result:Normal())
+
+		if settings.features.psr then
+			if
+				psr.apply({
+					x = x,
+					y = y,
+					albedo = albedo,
+					normal = normal,
+					bvh = bvh,
+					sampler = sampler,
+					result = result,
+
+					onMiss = miss,
+				})
+			then
+				-- Convert surface albedo to sRGB
+				albedo:SetPixel(
+					x,
+					y,
+					colors.linearTosRGB(albedo:GetPixel(x, y))
+				)
+			end
+		end
+
+		-- Average the computed radiance of n amount of samples.
+		local radiance = Vector(0, 0, 0)
+
+		---@type pathtracer.PathtraceInput
+		local pathtracerInput = {
+			bvh = bvh,
+			lightCollection = lightCollection,
+			hdri = hdri,
+			sampler = sampler,
+			result = result,
+			settings = settings,
+		}
+
+		for _ = 1, settings.samples do
+			radiance = radiance + pathtracer.pathtrace(pathtracerInput)
+		end
+
+		radiance = radiance / settings.samples
+		return radiance
+	end
+
+	local startTime = os.clock()
+
+	for y = 0, settings.height - 1 do
+		for x = 0, settings.width - 1 do
+			output:SetPixel(x, y, display(renderPixel(x, y)))
 		end
 	end
-	normal:Save("plux_normal")
-end
+
+	output:Save("plux_render_noisy")
+	if denoisingSupported then
+		output:Denoise({
+			Albedo = albedo,
+			Normal = normal,
+
+			AlbedoNoisy = false,
+			NormalNoisy = false,
+
+			sRGB = true,
+		})
+	end
+
+	print(("Render took %.2f seconds!"):format(os.clock() - startTime))
+	print(
+		("Render info:\nDimensions: %dx%d\nSamples: %d\nMax Bounces: %d\nFocal Length: %d\nSensor Height: %d"):format(
+			settings.width,
+			settings.height,
+			settings.samples,
+			settings.maxBounces,
+			settings.focalLength,
+			settings.sensorHeight
+		)
+	)
+
+	print("Settings dump:")
+	---@diagnostic disable-next-line: missing-parameter
+	PrintTable(settings)
+
+	-- We want the full render to be viewed as a PNG, so we transform it to RGB888.
+	local outputPNG = colors.fffto888(output)
+	outputPNG:Save("plux_render")
+
+	if DEBUG_GBUFFER then
+		albedo:Save("plux_albedo")
+		-- To identify normals, this is converted to 0, 1 for debugging.
+		for y = 0, settings.height - 1 do
+			for x = 0, settings.width - 1 do
+				normal:SetPixel(
+					x,
+					y,
+					normal:GetPixel(x, y) * 0.5 + Vector(0.5, 0.5, 0.5)
+				)
+			end
+		end
+		normal:Save("plux_normal")
+	end
+end)

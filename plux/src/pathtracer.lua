@@ -1,6 +1,3 @@
----@module 'settings'
-local settings = include("settings.lua")
-
 ---@module 'colors'
 local colors = include("colors.lua")
 
@@ -10,7 +7,7 @@ local rain = include("rain.lua")
 ---@module 'mis'
 local mis = include("mis.lua")
 
----@alias pathtracer.PathtraceInput {result: any, sampler: vistrace.Sampler, lightCollection: lights.LightCollection, hdri: any, bvh: any}
+---@alias pathtracer.PathtraceInput {result: any, sampler: vistrace.Sampler, lightCollection: lights.LightCollection, hdri: any, bvh: any, settings: settingmenu.Settings}
 
 local basicMaterial = vistrace.CreateMaterial()
 local waterMaterial = vistrace.CreateMaterial()
@@ -23,7 +20,7 @@ waterMaterial:SpecularTransmission(1)
 ---@return any material, GVector|nil absorption
 local function getMaterial(result)
 	if result:HitWater() then
-		return waterMaterial, settings.WATER_ABSORPTION
+		return waterMaterial, Vector(0, 0, 0)
 	end
 
 	local absorption = nil
@@ -52,14 +49,14 @@ local function pathtrace(input)
 	local throughput = Vector(1, 1, 1)
 	local result = input.result
 
-	for _ = 1, settings.MAX_BOUNCES do
+	for _ = 1, input.settings.maxBounces do
 		if result then
 			local mat, absorption = getMaterial(result)
 
 			local oldRoughness = mat:Roughness()
 
 			if
-				settings.FEATURES.RAIN
+				input.settings.features.rain
 				and rain.supported
 				and rain.inRain(result, input.bvh)
 			then
@@ -69,7 +66,7 @@ local function pathtrace(input)
 			local bsdfSample = result:SampleBSDF(input.sampler, mat)
 
 			if
-				settings.FEATURES.RAIN
+				input.settings.features.rain
 				and rain.supported
 				and rain.inRain(result, input.bvh)
 			then
@@ -88,15 +85,16 @@ local function pathtrace(input)
 						or -result:GeometricNormal()
 				)
 
-				if settings.FEATURES.MIS then
+				if input.settings.features.mis then
 					-- Samples the HDRI and uses MIS to properly weight it.
 					local skyValid, skyDir, skyCol, skyPdf =
 						input.hdri:Sample(input.sampler)
 					if skyValid then
 						local skyResult = input.bvh:Traverse(origin, skyDir)
 						if not skyResult or skyResult:HitSky() then
-							local skyWeight = (skyCol * settings.HDRI_EXPOSURE)
-								/ skyPdf
+							local skyWeight = (
+								skyCol * input.settings.hdriExposure
+							) / skyPdf
 							local misWeight = delta and 1
 								or mis.powerHeuristic2(
 									skyPdf,
@@ -142,7 +140,7 @@ local function pathtrace(input)
 				-- Attenuate throughput
 				throughput = throughput * bsdfSample.weight
 
-				if settings.FEATURES.RUSSIAN_ROULETTE then
+				if input.settings.features.russianRoulette then
 					-- Russian roulette
 					local terminationProb = math.max(
 						throughput[1],
@@ -162,7 +160,7 @@ local function pathtrace(input)
 				if not result or result:HitSky() then
 					local misWeight
 
-					if settings.FEATURES.MIS then
+					if input.settings.features.mis then
 						misWeight = mis.powerHeuristic2(
 							bsdfSample.pdf,
 							input.hdri:EvalPDF(bsdfSample.scattered)
@@ -174,14 +172,14 @@ local function pathtrace(input)
 					color = color
 						+ throughput
 							* input.hdri:GetPixel(bsdfSample.scattered)
-							* settings.HDRI_EXPOSURE
+							* input.settings.hdriExposure
 							* misWeight
 					break
 				end
 
 				-- Absorption for refractive objects
 				if
-					settings.FEATURES.ABSORPTION
+					input.settings.features.absorption
 					and absorption
 					and not transmitOut
 					and IsValid(result:Entity())
