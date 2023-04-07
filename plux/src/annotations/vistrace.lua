@@ -8,3 +8,5 @@
 ---@class vistrace.RenderTarget
 ---@field GetPixel fun(self: vistrace.RenderTarget, x: number, y: number): GVector
 ---@field SetPixel fun(self: vistrace.RenderTarget, x: number, y: number, pixel: GVector)
+---@field GetWidth fun(self: vistrace.RenderTarget):number
+---@field GetHeight fun(self: vistrace.RenderTarget):number
