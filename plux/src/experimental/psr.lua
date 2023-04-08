@@ -187,10 +187,9 @@ local function resolveGlass(result, onMiss, sampler, bvh, depth)
 	end
 
 	local fresnel = schlicksFresnel(
-		result:Incident():Dot(
-			result:FrontFacing() and result:GeometricNormal()
-				or -result:GeometricNormal()
-		),
+		result
+			:Incident()
+			:Dot(result:FrontFacing() and result:Normal() or -result:Normal()),
 		mat
 	)
 
