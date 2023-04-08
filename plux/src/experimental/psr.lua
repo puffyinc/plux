@@ -19,18 +19,27 @@ local function isMirror(mat)
 	return mat:Metalness() == 1 and mat:Roughness() == 0
 end
 
---- Checks if the given material is a mirror
+--- Checks if the given material is glass
 ---@param mat any
 ---@return boolean
 local function isGlass(mat)
 	return mat:Roughness() == 0 and mat:SpecularTransmission() == 1
 end
 
+--- Checks if the given material is a dielectric mirror
+---@param mat any
+---@return boolean
+local function isDielectricMirror(mat)
+	return mat:Roughness() == 0
+		and mat:Metalness() == 0
+		and mat:SpecularTransmission() == 0
+end
+
 --- Checks if a material is qualified for PSR
 ---@param mat any
 ---@return boolean
 local function isQualifiedSurface(mat)
-	return isMirror(mat) or isGlass(mat)
+	return isMirror(mat) or isGlass(mat) or isDielectricMirror(mat)
 end
 
 --- Schlick's approximation
@@ -45,6 +54,103 @@ local function schlicksFresnel(cosTheta, mat)
 	R0 = R0 * R0
 
 	return R0 + (1 - R0) * math.pow(1 - cosTheta, 5)
+end
+
+--- Resolves the secondary surface for a dielectric mirror.
+---@param result any
+---@param onMiss fun(dir:GVector):GVehicle
+---@param sampler vistrace.Sampler
+---@param bvh any
+---@param depth number|nil
+---@return {albedo: GVector, normal: GVector}
+local function resolveDielectricMirror(result, onMiss, sampler, bvh, depth)
+	depth = depth or 0
+
+	if depth > MAX_PSR_DEPTH then
+		return {
+			albedo = Vector(0, 0, 0),
+			normal = Vector(0, 0, 0),
+		}
+	end
+
+	if result:HitSky() then
+		return {
+			---@diagnostic disable-next-line: param-type-mismatch
+			albedo = onMiss(-result:Incident()),
+			normal = Vector(0, 0, 0),
+		}
+	end
+
+	local mat = pathtracer.getMaterial(result)
+	if not isDielectricMirror(mat) then
+		return {
+			albedo = result:Albedo(),
+			normal = result:Normal(),
+		}
+	end
+
+	local fresnel = schlicksFresnel(
+		result
+			:Incident()
+			:Dot(result:FrontFacing() and result:Normal() or -result:Normal()),
+		mat
+	)
+
+	local object = {
+		albedo = result:Albedo(),
+		normal = result:Normal(),
+	}
+
+	local reflection = {
+		albedo = Vector(0, 0, 0),
+		normal = Vector(0, 0, 0),
+	}
+
+	local function sampleWithLobe(lobe)
+		local oldLobes = mat:ActiveLobes()
+		mat:ActiveLobes(lobe)
+		local sample = result:SampleBSDF(sampler, mat)
+		mat:ActiveLobes(oldLobes)
+
+		return sample
+	end
+
+	-- Refraction
+	local reflectionSample = sampleWithLobe(LobeType.DeltaSpecularReflection)
+	if reflectionSample then
+		local outside = result:FrontFacing()
+		local origin = vistrace.CalcRayOrigin(
+			result:Pos(),
+			outside and result:GeometricNormal() or -result:GeometricNormal()
+		)
+
+		local reflectionResult =
+			bvh:Traverse(origin, reflectionSample.scattered)
+
+		if not reflectionResult then
+			reflection.albedo = Vector(0, 0, 0)
+			reflection.normal = Vector(0, 0, 0)
+		else
+			local surface = resolveDielectricMirror(
+				reflectionResult,
+				onMiss,
+				sampler,
+				bvh,
+				depth + 1
+			)
+			reflection = surface
+		end
+	end
+
+	local mixedAlbedo = reflection.albedo * fresnel
+		+ object.albedo * (1 - fresnel)
+	local mixedNormal = reflection.normal * fresnel
+		+ object.normal * (1 - fresnel)
+
+	return {
+		albedo = mixedAlbedo,
+		normal = mixedNormal,
+	}
 end
 
 --- Recursive function which resolves a path's albedo and normal from tracing the reflection and refraction rays.
@@ -136,7 +242,7 @@ local function resolveGlass(result, onMiss, sampler, bvh, depth)
 		end
 	end
 
-	-- Refraction
+	-- Reflection
 	local reflectionSample = sampleWithLobe(LobeType.Reflection)
 	if reflectionSample then
 		local outside = result:FrontFacing()
@@ -206,6 +312,14 @@ local function findSecondarySurface(result, onMiss, sampler, bvh)
 		elseif isQualifiedSurface(mat) then
 			if isGlass(mat) then
 				local surface = resolveGlass(result, onMiss, sampler, bvh)
+				return {
+					valid = true,
+					albedo = surface.albedo,
+					normal = surface.normal,
+				}
+			elseif isDielectricMirror(mat) then
+				local surface =
+					resolveDielectricMirror(result, onMiss, sampler, bvh)
 				return {
 					valid = true,
 					albedo = surface.albedo,

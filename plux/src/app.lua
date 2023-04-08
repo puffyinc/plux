@@ -22,7 +22,7 @@ local psr = include("experimental/psr.lua")
 local pathtracer = include("pathtracer.lua")
 local lightCollection = lights.LightCollection.new()
 
-local DEBUG_GBUFFER = false
+local DEBUG_GBUFFER = true
 
 --- Curve which allows you to crank up the intensity while also keeping low intensity by using a quadratic curve.
 --- Tuned in Desmos, basically means low alpha values will be treated as low intensity, but high alpha values will be treated as extreme intensity.
